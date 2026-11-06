@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Ticker Royale · Trading battles on Robinhood Chain testnet</title>
+<meta name="description" content="Free trading battles: Battle Royale, Spin & Go and 1v1 duels. Win tokens, stake, complete quests.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<style>
+:root{--bg:#07080a;--panel:#111318;--panel2:#171a21;--line:#232733;--text:#eef1f6;--muted:#8a91a3;
+  --gold:#ffd23f;--gold2:#ffb800;--green:#21e6a0;--red:#ff4d6a;--blue:#58a6ff;--purple:#b48cff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}
+body{background-image:radial-gradient(circle at 1px 1px,#1a1d24 1px,transparent 0);background-size:14px 14px;min-height:100vh}
+.app{max-width:520px;margin:0 auto;padding:14px 14px 100px}
+.mono{font-family:"JetBrains Mono",monospace}
+.muted{color:var(--muted)}
+.row{display:flex;align-items:center;gap:10px}
+.between{justify-content:space-between}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:18px;padding:16px;margin-top:12px}
+.card.hot{border-color:rgba(255,210,63,.35);background:linear-gradient(160deg,#211c0b,var(--panel) 55%)}
+.btn{border-radius:12px;font:600 15px Inter;padding:13px 16px;cursor:pointer;color:var(--text);background:var(--panel2);border:1px solid var(--line)}
+.btn.gold{background:linear-gradient(180deg,var(--gold),var(--gold2));color:#1a1300;border:none;box-shadow:0 4px 18px rgba(255,200,0,.22)}
+.btn.green{background:var(--green);color:#002116;border:none}
+.btn.red{background:var(--red);color:#2a0008;border:none}
+.btn.sm{padding:7px 11px;font-size:12.5px;border-radius:10px}
+.btn.block{width:100%}
+.btn:disabled{opacity:.4;cursor:default}
+.chip{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:10px;padding:8px 0;flex:1;font:600 13px Inter;cursor:pointer}
+.chip.on{border-color:var(--gold);color:var(--gold);background:rgba(255,210,63,.08)}
+input{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:13px;font:500 15px Inter;outline:none}
+input:focus{border-color:var(--gold)}
+.logo{font-weight:800;font-size:19px;letter-spacing:-.5px}
+.logo b{color:var(--gold)}
+.tagl{font-size:12px;color:var(--gold);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+h2{margin:4px 0 2px;font-size:21px}
+.big{font-size:26px;font-weight:800}
+.hidden{display:none!important}
+.stat small{display:block;color:var(--muted);font-size:12px}
+.stat b{font-size:17px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid2 .card{margin-top:0}
+.lb-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+.lb-row:first-child{border-top:none}
+.lb-row .rk{width:26px;height:26px;flex:0 0 26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--panel);border:1px solid var(--line)}
+.lb-row .rk.g1{background:var(--gold);color:#1a1300;border:none}.lb-row .rk.g2{background:#c9d1e0;color:#111;border:none}.lb-row .rk.g3{background:#d98a4b;color:#1a0b00;border:none}
+.lb-row.me{background:rgba(255,210,63,.07);border:1px solid rgba(255,210,63,.4);border-radius:10px;padding:9px 8px}
+.lb-row.out{opacity:.4}
+.lb-row.out .nm{text-decoration:line-through}
+.badge{font-size:11px;padding:2px 7px;border-radius:6px;background:var(--panel);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.badge.gold{color:var(--gold);border-color:rgba(255,210,63,.4)}
+.badge.bot{color:var(--purple);border-color:rgba(180,140,255,.35)}
+.badge.sim{color:var(--blue)}
+.markets{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.markets::-webkit-scrollbar{display:none}
+.mk{flex:0 0 auto;min-width:96px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 10px;cursor:pointer}
+.mk.on{border-color:var(--gold)}
+.mk b{font-size:13px}.mk div{font-size:12px}
+canvas{width:100%;height:200px;display:block}
+.hud{position:sticky;top:0;z-index:5;background:rgba(7,8,10,.92);backdrop-filter:blur(8px);margin:-14px -14px 0;padding:12px 14px;border-bottom:1px solid var(--line)}
+.timer{font-size:22px;font-weight:700}
+.danger{color:var(--red)}
+.pos{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line);font-size:13px}
+.pos:first-child{border-top:none}
+.feed{font-size:12.5px;color:var(--muted);max-height:110px;overflow:auto}
+.feed div{padding:3px 0}
+.toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);background:#20242e;border:1px solid var(--line);padding:12px 16px;border-radius:12px;font-size:14px;z-index:60;max-width:90vw;transition:opacity .3s}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+.overlay .card{max-width:420px;width:100%;text-align:center}
+.cut{font-size:44px;font-weight:800;color:var(--red)}
+.pnl-up{color:var(--green)}.pnl-dn{color:var(--red)}
+.seats{display:flex;gap:4px;margin-top:10px}
+.seats i{flex:1;height:5px;border-radius:3px;background:var(--line)}
+.seats i.on{background:var(--gold)}
+.seats i.bot{background:var(--purple)}
+nav{position:fixed;left:0;right:0;bottom:0;background:rgba(10,11,14,.96);border-top:1px solid var(--line);display:flex;justify-content:center;z-index:20;backdrop-filter:blur(8px)}
+nav .in{display:flex;max-width:520px;width:100%}
+nav button{flex:1;background:none;border:none;color:var(--muted);font:500 11px Inter;padding:10px 0 14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
+nav button .ic{font-size:19px;line-height:1}
+nav button.on{color:var(--gold)}
+nav button .soon{font-size:9px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:5px;padding:0 4px;margin-top:1px}
+.soonbox{text-align:center;padding:26px 16px}
+.soonbox .ic{font-size:40px}
+.bal{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-weight:700;font-size:13px}
+.reel{height:70px;overflow:hidden;border:2px solid var(--gold);border-radius:14px;margin:16px auto;width:220px;position:relative;background:#0b0c10}
+.reel .strip{position:absolute;left:0;right:0;top:0}
+.reel .strip div{height:70px;display:flex;align-items:center;justify-content:center;font:800 30px "JetBrains Mono";color:var(--gold)}
+.quest{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.quest:first-child{border-top:none}
+.quest .qi{width:38px;height:38px;flex:0 0 38px;border-radius:12px;background:var(--panel);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:18px}
+.prog{height:5px;background:var(--line);border-radius:3px;margin-top:6px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--gold)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:8px 4px;border-top:1px solid var(--line);text-align:left}
+th{color:var(--muted);font-weight:500;border-top:none}
+.note{font-size:12.5px;color:var(--muted);line-height:1.55}
+a{color:var(--gold)}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- top bar -->
+<div class="row between" id="topbar">
+  <div class="logo">TICKER<b>.ROYALE</b></div>
+  <div class="row" style="gap:8px">
+    <span class="badge gold hidden" id="stakerBadge">⭐ Staker</span>
+    <span class="bal mono" id="balTop">🪙 0</span>
+  </div>
+</div>
+
+<!-- ============ BATTLE TAB ============ -->
+<section id="tab-battle" class="tab">
+  <div class="card">
+    <div class="row" style="gap:8px">
+      <input id="nameIn" placeholder="Trader name" maxlength="16">
+    </div>
+    <div class="row" style="margin-top:8px">
+      <input id="walletIn" placeholder="0x… wallet (tokens are sent here)" class="mono" style="font-size:12.5px">
+      <button class="btn" id="connectBtn" style="white-space:nowrap">Connect</button>
+    </div>
+  </div>
+
+  <div class="card hot">
+    <div class="row between">
+      <div>
+        <div class="tagl">10 seats · top 3 paid</div>
+        <h2>Battle Royale</h2>
+        <div class="muted" style="font-size:13px">10 min. The bottom 30% are cut every 2 min.</div>
+      </div>
+      <span class="badge gold" id="brLeft">10/10 today</span>
+    </div>
+    <div class="row" style="margin-top:12px;gap:22px">
+      <div class="stat"><small>🥇 1st</small><b class="mono">100</b></div>
+      <div class="stat"><small>🥈 2nd</small><b class="mono">50</b></div>
+      <div class="stat"><small>🥉 3rd</small><b class="mono">25</b></div>
+      <div class="stat"><small>Entry</small><b>Free</b></div>
+    </div>
+    <button class="btn gold block" data-join="br" style="margin-top:14px">Join Battle Royale</button>
+  </div>
+
+  <div class="grid2" style="margin-top:12px">
+    <div class="card">
+      <div class="tagl">3 players</div>
+      <h2>Spin &amp; Go</h2>
+      <div class="muted" style="font-size:12.5px">The prize is spun before the match. Winner takes all. You're out if you drop 15%.</div>
+      <div class="stat" style="margin-top:10px"><small>Top prize</small><b class="mono" style="color:var(--gold)">1,000</b></div>
+      <button class="btn gold block" data-join="spin" style="margin-top:12px">Play</button>
+    </div>
+    <div class="card">
+      <div class="tagl">1 vs 1</div>
+      <h2>Duel</h2>
+      <div class="muted" style="font-size:12.5px">5 minutes, head-to-head. Highest account value wins.</div>
+      <div class="stat" style="margin-top:10px"><small>Winner gets</small><b class="mono" style="color:var(--gold)">20</b></div>
+      <button class="btn gold block" data-join="duel" style="margin-top:12px">Play</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row between">
+      <div><div class="tagl">Practice</div><b>Solo vs 11 bots</b><div class="muted" style="font-size:12.5px">No wait, no rewards. Learn the controls.</div></div>
+      <button class="btn" data-join="practice">Play</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="tagl">How it works</div>
+    <ol class="note" style="padding-left:18px;margin:8px 0 0">
+      <li>Tap Join. You wait up to 1 minute for other players, then bots fill any empty seats. Bots trade aggressively.</li>
+      <li>Everyone starts with $1,000 of virtual money. Long or short BTC, ETH, SOL and stocks with up to 25x leverage on live prices.</li>
+      <li>Tokens you win go into your balance and are airdropped to your wallet in batches.</li>
+      <li>Staking at least <span class="perkMin">1,000</span> tokens gives you +<span class="perkPct">25</span>% on every prize.</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============ QUESTS TAB ============ -->
+<section id="tab-quests" class="tab hidden">
+  <div class="card">
+    <div class="row between"><div class="tagl">Daily quests</div><span class="muted" style="font-size:12px" id="questReset"></span></div>
+    <div id="questList" style="margin-top:6px"></div>
+  </div>
+  <div class="card">
+    <div class="tagl">Invite friends</div>
+    <p class="note" style="margin:6px 0 10px">When a friend finishes their first battle using your link, you <b>both</b> get <b class="mono" style="color:var(--gold)" id="refAmt">25</b> tokens.</p>
+    <div class="row"><input id="refLink" readonly class="mono" style="font-size:12px"><button class="btn" id="copyRef">Copy</button></div>
+    <div class="row" style="margin-top:12px;gap:22px">
+      <div class="stat"><small>Friends joined</small><b class="mono" id="refCount">0</b></div>
+      <div class="stat"><small>Earned from invites</small><b class="mono" id="refEarned">0</b></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="tagl">Your history</div>
+    <div id="history" style="margin-top:6px"></div>
+  </div>
+</section>
+
+<!-- ============ STAKE TAB ============ -->
+<section id="tab-stake" class="tab hidden">
+  <div class="card hot">
+    <div class="tagl">Stake <span class="sym">TOKEN</span></div>
+    <h2>Earn <span id="aprTxt">—</span> APR + game perks</h2>
+    <p class="note" style="margin:6px 0 0">Stake at least <b class="perkMin">1,000</b> and every prize you win is boosted by <b>+<span class="perkPct">25</span>%</b>. You also get the ⭐ Staker badge in every match.</p>
+  </div>
+  <div id="stakeSetup" class="card soonbox hidden">
+    <div class="ic">🔒</div><h2>Staking is coming soon</h2>
+    <p class="note">Stake <span class="sym">TOKEN</span> to earn APR and a +<span class="perkPct">25</span>% boost on every prize. Keep playing to earn tokens before it opens.</p>
+  </div>
+  <div id="stakeUI" class="card hidden">
+    <div class="grid2" style="gap:10px">
+      <div class="stat"><small>Wallet balance</small><b class="mono" id="stBal">—</b></div>
+      <div class="stat"><small>You staked</small><b class="mono" id="stStaked">—</b></div>
+      <div class="stat"><small>Rewards to claim</small><b class="mono" id="stPending" style="color:var(--gold)">—</b></div>
+      <div class="stat"><small>Total staked</small><b class="mono" id="stTotal">—</b></div>
+    </div>
+    <input id="stAmt" type="number" min="0" placeholder="Amount" class="mono" style="margin-top:14px">
+    <div class="row" style="margin-top:8px">
+      <button class="btn gold block" id="stStake">Stake</button>
+      <button class="btn block" id="stUnstake">Unstake</button>
+    </div>
+    <button class="btn block" id="stClaim" style="margin-top:8px">Claim rewards</button>
+    <div class="note" id="stMsg" style="margin-top:10px;text-align:center"></div>
+  </div>
+</section>
+
+<!-- ============ COMPETE TAB ============ -->
+<section id="tab-compete" class="tab hidden">
+  <div class="card soonbox hidden" id="compSoon">
+    <div class="ic">📈</div><h2>Trading competition coming soon</h2>
+    <p class="note">Trade <span class="sym">TOKEN</span> on the vibe/vibe testnet and climb the volume leaderboard to win token prizes. Starting soon, so stay tuned.</p>
+  </div>
+  <div id="compMain">
+  <div class="card hot">
+    <div class="tagl">Trading competition</div>
+    <h2>Trade <span class="sym">TOKEN</span> on vibe.fun</h2>
+    <p class="note" style="margin:6px 0 10px">Buy and sell <span class="sym">TOKEN</span> on the vibe/vibe testnet. The biggest traders by volume during the competition win token prizes.</p>
+    <div class="row" style="gap:22px">
+      <div class="stat"><small id="compPhase">Ends in</small><b class="mono" id="compTimer">—</b></div>
+      <div class="stat"><small>Prize pool</small><b class="mono" id="compPool">—</b></div>
+    </div>
+    <a class="btn gold block" id="tradeLink" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-top:14px">Trade on vibe.fun ↗</a>
+  </div>
+  <div class="card">
+    <div class="tagl">Prizes</div>
+    <div id="compPrizes" class="note" style="margin-top:6px"></div>
+  </div>
+  <div class="card">
+    <div class="row between"><div class="tagl">Leaderboard</div><button class="btn sm" id="compRefresh">Refresh</button></div>
+    <div id="compBoard" style="margin-top:6px"></div>
+    <div class="note" style="margin-top:10px">Volume counts buys and sells against a contract (the vibe.fun curve or a pool). Wallet-to-wallet transfers don't count.</div>
+  </div>
+  </div>
+</section>
+
+<!-- ============ RANKS TAB ============ -->
+<section id="tab-ranks" class="tab hidden">
+  <div class="card">
+    <div class="row between"><div class="tagl">Top earners</div><span class="muted" style="font-size:12px">tokens earned</span></div>
+    <div id="ranksList" style="margin-top:6px"></div>
+  </div>
+  <div class="card hidden" id="adminCard">
+    <div class="tagl">Admin · airdrop list</div>
+    <p class="note">Unpaid tokens per wallet. Copy it and paste into your airdrop tool or a spreadsheet.</p>
+    <div id="adminSummary" class="note"></div>
+    <button class="btn gold block" id="copyCsv" style="margin-top:8px">Copy CSV (wallet,amount)</button>
+  </div>
+</section>
+
+<!-- ============ QUEUE ============ -->
+<section id="queue" class="hidden">
+  <div class="card" style="text-align:center">
+    <div class="tagl" id="qMode">Battle Royale</div>
+    <h2>Finding players…</h2>
+    <div class="big mono" id="qTimer" style="font-size:46px">01:00</div>
+    <div class="muted" style="font-size:13px" id="qNote">Bots fill any empty seats when the timer ends.</div>
+    <div class="seats" id="qSeats"></div>
+    <div id="qPrize" class="hidden">
+      <div class="muted" style="margin-top:14px;font-size:13px">Prize for this match</div>
+      <div class="reel"><div class="strip" id="reelStrip"></div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="tagl">In the lobby (<span id="qCount">1</span>)</div>
+    <div id="qList" style="margin-top:6px"></div>
+  </div>
+  <button class="btn block" id="qLeave" style="margin-top:12px">Leave queue</button>
+</section>
+
+<!-- ============ GAME ============ -->
+<section id="game" class="hidden">
+  <div class="hud">
+    <div class="row between">
+      <div>
+        <small class="muted" id="hudMode">Battle Royale</small>
+        <div class="big mono" id="equity">$1,000</div>
+        <div class="mono" style="font-size:13px" id="equityPct">+0.00%</div>
+      </div>
+      <div style="text-align:right">
+        <small class="muted" id="hudTimerLabel">Next cut in</small>
+        <div class="timer mono" id="hudTimer">--:--</div>
+        <small class="muted"><span id="aliveCount">0</span> alive · rank <b id="myRank">-</b></small>
+      </div>
+    </div>
+    <div class="note" id="hudExtra" style="margin-top:4px"></div>
+  </div>
+  <div class="markets" id="markets" style="margin-top:12px"></div>
+  <div class="card" style="padding:12px">
+    <div class="row between"><div><b id="mkName">BTC</b> <span id="mkTag"></span></div><div class="mono" id="mkPrice">—</div></div>
+    <canvas id="chart"></canvas>
+  </div>
+  <div class="card">
+    <div class="row between"><small class="muted">Margin</small><small class="muted">Cash <span class="mono" id="cash">$1,000</span></small></div>
+    <div class="row" id="sizeChips" style="margin-top:6px"></div>
+    <small class="muted" style="display:block;margin-top:12px">Leverage</small>
+    <div class="row" id="levChips" style="margin-top:6px"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn green block" id="longBtn">▲ Long</button>
+      <button class="btn red block" id="shortBtn">▼ Short</button>
+    </div>
+    <div class="muted" id="closedNote" style="font-size:12px;margin-top:8px;text-align:center"></div>
+  </div>
+  <div class="card">
+    <div class="row between"><div class="tagl">Open positions</div><button class="btn sm" id="closeAll">Close all</button></div>
+    <div id="positions" style="margin-top:6px"></div>
+  </div>
+  <div class="card"><div class="tagl">Standings</div><div id="standings" style="margin-top:6px"></div></div>
+  <div class="card"><div class="tagl">Feed</div><div class="feed" id="feed"></div></div>
+</section>
+
+<!-- ============ RESULTS ============ -->
+<section id="results" class="hidden">
+  <div class="card" style="text-align:center">
+    <div class="tagl" id="resMode">Battle Royale</div>
+    <div style="font-size:60px;font-weight:800;line-height:1.1;margin-top:8px" id="resRank">#1</div>
+    <div class="muted" id="resOf">of 10 traders</div>
+    <div class="row" style="justify-content:center;gap:26px;margin-top:16px">
+      <div class="stat"><small>Final value</small><b class="mono" id="resEq">$0</b></div>
+      <div class="stat"><small>PnL</small><b class="mono" id="resPnl">0%</b></div>
+      <div class="stat"><small>Tokens won</small><b class="mono" id="resTok" style="color:var(--gold)">0</b></div>
+    </div>
+    <div class="note" id="resNote" style="margin-top:12px"></div>
+  </div>
+  <div class="card"><div class="tagl">Final standings</div><div id="resList" style="margin-top:6px"></div></div>
+  <div class="row" style="margin-top:12px">
+    <button class="btn block" id="shareBtn">Copy brag post</button>
+    <button class="btn gold block" id="againBtn">Play again</button>
+  </div>
+  <button class="btn block" id="homeBtn" style="margin-top:8px">Back to lobby</button>
+</section>
+</div>
+
+<nav id="nav"><div class="in">
+  <button data-tab="battle" class="on"><span class="ic">⚔️</span>Battle</button>
+  <button data-tab="quests"><span class="ic">🎯</span>Quests</button>
+  <button data-tab="stake"><span class="ic">🔒</span>Stake</button>
+  <button data-tab="compete"><span class="ic">📈</span>Compete</button>
+  <button data-tab="ranks"><span class="ic">🏆</span>Ranks</button>
+</div></nav>
+
+<div id="overlay" class="overlay hidden"><div class="card" id="overlayCard"></div></div>
+<div id="toast" class="toast hidden"></div>
+
+<script>
+/* =====================================================================
+   CONFIG: fill these in (see README)
+   ===================================================================== */
+const CONFIG = {
+  SUPABASE_URL: "https://hdqxihttlyjsqjansfuv.supabase.co",
+  SUPABASE_ANON_KEY: "sb_publishable_tyw4vz4FT_ilAcl1jH7I8Q_sYPE562P",
+
+  TOKEN_SYMBOL: "TOKEN",            // your ticker
+  TOKEN_ADDRESS: "",                // your token contract on Robinhood testnet
+  TOKEN_DECIMALS: 18,
+  STAKING_ADDRESS: "",              // deployed TickerStaking.sol
+  VIBE_TRADE_URL: "",               // link to your token's page on vibe.fun
+
+  PERK_MIN: 1000,                   // stake this much for the perk
+  PERK_BONUS: 0.25,                 // +25% on game prizes
+
+  COMP_START: "2026-11-10T00:00:00Z",
+  COMP_END:   "2026-11-17T00:00:00Z",
+  COMP_PRIZES: [1000, 500, 250, 100, 100, 50, 50, 50, 50, 50],
+
+  RPC: "https://rpc.testnet.chain.robinhood.com",
+  EXPLORER: "https://explorer.testnet.chain.robinhood.com",
+  CHAIN_ID_HEX: "0xb626"            // 46630
+};
+
+/* ---------- game modes ---------- */
+const MODES = {
+  br:      { name:"Battle Royale", seats:10, duration:10*60e3, cutEvery:2*60e3, cutFrac:0.30, drawdown:null, prizes:[100,50,25], dailyCap:null },
+  spin:    { name:"Spin & Go",     seats:3,  duration:5*60e3,  cutEvery:null,   cutFrac:0,    drawdown:0.15, prizes:"spin",       dailyCap:5 },
+  duel:    { name:"1v1 Duel",      seats:2,  duration:5*60e3,  cutEvery:null,   cutFrac:0,    drawdown:null, prizes:[20],         dailyCap:10 },
+  practice:{ name:"Practice",      seats:12, duration:5*60e3,  cutEvery:60e3,   cutFrac:0.25, drawdown:null, prizes:[],           dailyCap:null }
+};
+const BR_PER_DAY = 10;                 // prize Battle Royales per day (all players)
+const QUEUE_MS   = 60e3;               // wait for humans before bots fill
+const SPIN_TABLE = [[25,50],[50,30],[100,14],[250,5],[1000,1]];   // [prize, weight%]
+const QUESTS = [
+  {k:"play3",   icon:"🎮", title:"Play 3 battles",            amt:10},
+  {k:"duelwin", icon:"⚔️", title:"Win a 1v1 duel",            amt:15},
+  {k:"brtop3",  icon:"👑", title:"Top 3 in a Battle Royale",  amt:20},
+  {k:"streak",  icon:"🔥", title:"Daily streak",              amt:5}   // × streak days, max 7
+];
+const REF_AMT = 25;
+const GAME_KINDS = ["br","spin","duel"];
+
+const START = 1000, SIZES=[0.1,0.25,0.5,1], LEVS=[1,5,10,25];
+const HERMES = "https://hermes.pyth.network";
+const MARKETS = [
+  {sym:"BTC", pyth:"Crypto.BTC/USD", type:"crypto", fb:100000},
+  {sym:"ETH", pyth:"Crypto.ETH/USD", type:"crypto", fb:3500},
+  {sym:"SOL", pyth:"Crypto.SOL/USD", type:"crypto", fb:180},
+  {sym:"NVDA",pyth:"Equity.US.NVDA/USD", type:"equity", fb:180},
+  {sym:"AAPL",pyth:"Equity.US.AAPL/USD", type:"equity", fb:230},
+  {sym:"TSLA",pyth:"Equity.US.TSLA/USD", type:"equity", fb:350}
+].map(m=>({...m,price:null,hist:[],open0:null,live:false,sim:false,closed:false,lastPub:0,lastPush:0}));
+const BOT_NAMES = ["DegenDan","WAGMI_Wen","LiqLarry","ApeAnna","ShortSam","HODLHank","FOMOFiona","PumpPete","BearBella","SatsSara","GigaGreg","CandleCarl","RektRita","MoonMax","YoloYuki","LeverLeo"];
+
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+const SYM = CONFIG.TOKEN_SYMBOL;
+const fmt$ = v => (v<0?"-$":"$")+Math.abs(Number(v)).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtP = p => p>=1000 ? p.toLocaleString("en-US",{maximumFractionDigits:2}) : p>=1 ? p.toFixed(3) : p.toFixed(5);
+const fmtT = v => Number(v).toLocaleString("en-US",{maximumFractionDigits:2});
+const pctStr = v => (v>=0?"+":"")+v.toFixed(2)+"%";
+const mmss = ms => { ms=Math.max(0,ms); const s=Math.ceil(ms/1000); return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0"); };
+const dhm = ms => { ms=Math.max(0,ms); const d=Math.floor(ms/864e5), h=Math.floor(ms%864e5/36e5), m=Math.floor(ms%36e5/6e4); return d?`${d}d ${h}h`:`${h}h ${m}m`; };
+const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const short = a => a ? a.slice(0,6)+"…"+a.slice(-4) : "—";
+const dayKey = (t=Date.now()) => new Date(t).toISOString().slice(0,10);
+const isAddr = a => /^0x[0-9a-fA-F]{40}$/.test(a||"");
+function store(k,v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v);}catch{ return null; } }
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.remove("hidden"); t.style.opacity=1; clearTimeout(t._h); t._h=setTimeout(()=>{t.style.opacity=0;setTimeout(()=>t.classList.add("hidden"),300)},2800); }
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+const gaussR = r => { let u=0,v=0; while(!u)u=r(); while(!v)v=r(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
+const gauss = () => gaussR(Math.random);
+function spinFromSeed(seed){ const x = mulberry32(seed ^ 0x9e3779b9)()*100; let acc=0; for(const [v,w] of SPIN_TABLE){ acc+=w; if(x<acc) return v; } return SPIN_TABLE[0][0]; }
+document.querySelectorAll(".sym").forEach(e=>e.textContent=SYM);
+document.querySelectorAll(".perkMin").forEach(e=>e.textContent=CONFIG.PERK_MIN.toLocaleString());
+document.querySelectorAll(".perkPct").forEach(e=>e.textContent=Math.round(CONFIG.PERK_BONUS*100));
+$("refAmt").textContent = REF_AMT;
+
+/* ---------- identity + referral ---------- */
+const ME = { id: store("tr_id") || (crypto.randomUUID ? crypto.randomUUID() : "p"+String(Math.random()).slice(2)), name: store("tr_name")||"", wallet: store("tr_wallet")||"", staked:0n, isStaker:false };
+store("tr_id", ME.id);
+const qs = new URLSearchParams(location.search);
+if(qs.get("ref") && qs.get("ref")!==ME.id && !store("tr_ref")) store("tr_ref", qs.get("ref"));
+const ADMIN = qs.get("admin")==="1";
+$("nameIn").value = ME.name; $("walletIn").value = ME.wallet;
+$("nameIn").oninput = e => { ME.name = e.target.value.trim(); store("tr_name",ME.name); };
+$("walletIn").onchange = e => { ME.wallet = e.target.value.trim(); store("tr_wallet",ME.wallet); checkStaker(); };
+
+/* ---------- backends ---------- */
+const sb = (CONFIG.SUPABASE_URL && CONFIG.SUPABASE_ANON_KEY && window.supabase) ? window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY) : null;
+const LOCAL = !sb;     // no Supabase → everything runs in this browser (demo mode)
+const hasEthers = () => !!window.ethers;
+const readProvider = () => new ethers.JsonRpcProvider(CONFIG.RPC);
+
+/* Token ledger (Supabase, or localStorage in demo mode) */
+const localLedger = () => { try{ return JSON.parse(store("tr_ledger")||"[]"); }catch{ return []; } };
+const Ledger = {
+  async add(row){
+    row = { player_id:ME.id, name:ME.name||"Trader", wallet:isAddr(ME.wallet)?ME.wallet:null, day_key:dayKey(), amount:0, ...row };
+    if(LOCAL){ const l=localLedger(); if(l.some(r=>r.player_id===row.player_id&&r.kind===row.kind&&r.ref===row.ref)) return false;
+      l.push({...row, created_at:new Date().toISOString()}); store("tr_ledger",JSON.stringify(l)); return true; }
+    const { error } = await sb.from("rewards").insert(row); return !error;
+  },
+  async mine(){ if(LOCAL) return localLedger().filter(r=>r.player_id===ME.id);
+    const {data} = await sb.from("rewards").select("*").eq("player_id",ME.id).order("created_at",{ascending:false}).limit(5000); return data||[]; },
+  async all(){ if(LOCAL) return localLedger();
+    const {data} = await sb.from("rewards").select("player_id,name,wallet,amount,kind,rank,paid").limit(20000); return data||[]; }
+};
+async function refreshBalance(){ try{ const m = await Ledger.mine(); $("balTop").textContent = "🪙 "+fmtT(m.reduce((s,r)=>s+Number(r.amount||0),0)); }catch{} }
+
+/* ---------- wallet ---------- */
+async function connectWallet(){
+  if(!window.ethereum){ toast("No wallet found. Open the site in your wallet app's browser, or paste your address."); return null; }
+  try{
+    const [a] = await ethereum.request({method:"eth_requestAccounts"});
+    try{ await ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:CONFIG.CHAIN_ID_HEX}]}); }
+    catch(e){ if(e.code===4902) await ethereum.request({method:"wallet_addEthereumChain",params:[{chainId:CONFIG.CHAIN_ID_HEX,chainName:"Robinhood Chain Testnet",
+      nativeCurrency:{name:"ETH",symbol:"ETH",decimals:18},rpcUrls:[CONFIG.RPC],blockExplorerUrls:[CONFIG.EXPLORER]}]}); }
+    ME.wallet = a; $("walletIn").value = a; store("tr_wallet",a); toast("Wallet connected"); checkStaker(); return a;
+  }catch{ toast("Wallet connection cancelled"); return null; }
+}
+$("connectBtn").onclick = connectWallet;
+
+const ERC20 = ["function balanceOf(address) view returns (uint256)","function allowance(address,address) view returns (uint256)","function approve(address,uint256) returns (bool)"];
+const STAKE_ABI = ["function stake(uint256)","function unstake(uint256)","function claim()","function pending(address) view returns (uint256)",
+  "function stakedOf(address) view returns (uint256)","function aprBps() view returns (uint256)","function totalStaked() view returns (uint256)","function rewardPool() view returns (uint256)"];
+const toUnits = n => ethers.parseUnits(String(n), CONFIG.TOKEN_DECIMALS);
+const fromUnits = v => Number(ethers.formatUnits(v, CONFIG.TOKEN_DECIMALS));
+
+async function checkStaker(){
+  ME.isStaker = false; $("stakerBadge").classList.add("hidden");
+  if(!CONFIG.STAKING_ADDRESS || !isAddr(ME.wallet) || !hasEthers()) return;
+  try{
+    const st = new ethers.Contract(CONFIG.STAKING_ADDRESS, STAKE_ABI, readProvider());
+    ME.staked = await st.stakedOf(ME.wallet);
+    ME.isStaker = fromUnits(ME.staked) >= CONFIG.PERK_MIN;
+    $("stakerBadge").classList.toggle("hidden", !ME.isStaker);
+  }catch{}
+}
+
+/* =====================================================================
+   PRICE FEED (Pyth Hermes live → simulated fallback)
+   ===================================================================== */
+function setPrice(m, px){
+  m.price = px; if(m.open0==null) m.open0 = px;
+  const now = Date.now();
+  if(now-m.lastPush>400){ m.hist.push({t:now,p:px}); m.lastPush=now; if(m.hist.length>900) m.hist.shift(); }
+  checkLiquidations();
+}
+async function startFeed(){
+  await Promise.all(MARKETS.map(async m=>{ try{
+    const arr = await (await fetch(`${HERMES}/v2/price_feeds?query=${m.sym}&asset_type=${m.type}`)).json();
+    const f = arr.find(x=>x.attributes && x.attributes.symbol===m.pyth); if(f) m.id = f.id.replace(/^0x/,"");
+  }catch{} }));
+  const withId = MARKETS.filter(m=>m.id);
+  const handle = list => (list||[]).forEach(p=>{
+    const m = MARKETS.find(x=>x.id===p.id.replace(/^0x/,"")); if(!m) return;
+    m.lastPub = p.price.publish_time*1000; m.live=true; m.sim=false; m.closed = Date.now()-m.lastPub > 10*60e3;
+    setPrice(m, Number(p.price.price)*Math.pow(10,p.price.expo));
+  });
+  if(withId.length){
+    const q = withId.map(m=>"ids[]="+m.id).join("&");
+    try{ handle((await (await fetch(`${HERMES}/v2/updates/price/latest?parsed=true&${q}`)).json()).parsed); }catch{}
+    try{ const es = new EventSource(`${HERMES}/v2/updates/price/stream?parsed=true&${q}`); es.onmessage = e=>{ try{ handle(JSON.parse(e.data).parsed); }catch{} }; }catch{}
+  }
+  setTimeout(()=>MARKETS.forEach(m=>{ if(!m.live){ m.sim=true; if(m.price==null) setPrice(m,m.fb); } }), LOCAL?1500:6000);
+  setInterval(()=>MARKETS.forEach(m=>{ if(m.sim) setPrice(m, m.price*(1+0.0012*gauss())); else if(m.live) m.closed = Date.now()-m.lastPub > 10*60e3; }),1000);
+}
+
+/* =====================================================================
+   BOTS: deterministic from the match seed so every player sees the same bots.
+   Aggressive: high volatility + random blow-ups and pumps.
+   ===================================================================== */
+function makeBots(n, seed){
+  const r0 = mulberry32(seed);
+  const names = [...BOT_NAMES].sort(()=>r0()-0.5);
+  return Array.from({length:n},(_,i)=>{
+    const rng = mulberry32(seed + (i+1)*7919);
+    return { id:"bot"+i, name:names[i%names.length], bot:true, equity:START, alive:true, outAt:null, rng, step:0,
+             vol:0.0035+rng()*0.0045, drift:(rng()-0.45)*0.0008 };
+  });
+}
+function advanceBots(bots, targetStep, cfg){
+  for(const b of bots){
+    while(b.step < targetStep){
+      b.step++;
+      let r = b.drift + b.vol*gaussR(b.rng);
+      const u = b.rng();
+      if(u < 0.003) r -= 0.25 + b.rng()*0.35;        // got liquidated on a big position
+      else if(u < 0.006) r += 0.10 + b.rng()*0.30;   // hit a big trade
+      if(!b.alive) continue;                          // keep RNG in sync, stop moving equity
+      b.equity = Math.max(0, b.equity*(1+r));
+      if(cfg.drawdown && b.equity < START*(1-cfg.drawdown)){ b.alive=false; b.outAt=b.step; }
+    }
+  }
+}
+
+/* =====================================================================
+   MATCHMAKING: 60s queue, then bots fill empty seats
+   ===================================================================== */
+let Q = null;   // current queue
+async function joinQueue(mode){
+  if(!ME.name){ toast("Pick a trader name first"); $("nameIn").focus(); return; }
+  if(!MARKETS.some(m=>m.price!=null)){ toast("Loading prices… try again in a few seconds"); return; }
+  const cfg = MODES[mode];
+  if(mode==="practice"){ const seed=Math.floor(Math.random()*2**31); startGame({mode, match:{id:"practice-"+Date.now(), seed, start_at:Date.now(), rewarded:false}, humans:[]}); return; }
+
+  let match;
+  try{
+    if(LOCAL){
+      const seed = Math.floor(Math.random()*2**31);
+      let rewarded = true;
+      if(mode==="br"){ const k="tr_brcount_"+dayKey(); const c=+(store(k)||0); rewarded = c < BR_PER_DAY; store(k, c+1); }
+      match = { id:"local-"+Date.now(), mode, seats:cfg.seats, start_at:Date.now()+10e3, seed, rewarded, spin_prize: mode==="spin"?spinFromSeed(seed):null };
+    } else {
+      const soon = new Date(Date.now()+5000).toISOString();
+      const { data:open } = await sb.from("matches").select("*").eq("mode",mode).gt("start_at",soon).order("start_at").limit(5);
+      for(const m of open||[]){
+        const { count } = await sb.from("match_players").select("player_id",{count:"exact",head:true}).eq("match_id",m.id);
+        if((count||0) < m.seats){ match = m; break; }
+      }
+      if(!match){
+        let rewarded = true;
+        if(mode==="br"){ const { count } = await sb.from("matches").select("id",{count:"exact",head:true}).eq("mode","br").eq("day_key",dayKey()).eq("rewarded",true); rewarded = (count||0) < BR_PER_DAY; }
+        const seed = Math.floor(Math.random()*2**31);
+        const { data, error } = await sb.from("matches").insert({ mode, seats:cfg.seats, start_at:new Date(Date.now()+QUEUE_MS).toISOString(), seed, rewarded,
+          spin_prize: mode==="spin"?spinFromSeed(seed):null, day_key:dayKey() }).select().single();
+        if(error) throw error; match = data;
+      }
+      match.start_at = new Date(match.start_at).getTime();
+      await sb.from("match_players").upsert({ match_id:match.id, player_id:ME.id, name:ME.name, wallet:isAddr(ME.wallet)?ME.wallet:null, equity:START, alive:true, out_at:null });
+    }
+  }catch(e){ toast("Couldn't reach the server. Try again."); return; }
+
+  Q = { mode, match, rows:[{player_id:ME.id,name:ME.name}], polledAt:0, starting:false };
+  $("qMode").textContent = cfg.name + (match.rewarded===false ? " · no prize (today's 10 used)" : "");
+  $("qPrize").classList.toggle("hidden", mode!=="spin");
+  if(mode==="spin") buildReel(match.spin_prize);
+  showScreen("queue");
+}
+async function leaveQueue(){
+  if(Q && !LOCAL){ try{ await sb.from("match_players").delete().eq("match_id",Q.match.id).eq("player_id",ME.id); }catch{} }
+  Q = null; showTab("battle");
+}
+function renderQueue(){
+  if(!Q) return;
+  const now = Date.now(), left = Q.match.start_at - now, cfg = MODES[Q.mode];
+  $("qTimer").textContent = mmss(left);
+  if(!LOCAL && now - Q.polledAt > 2000){
+    Q.polledAt = now;
+    sb.from("match_players").select("player_id,name").eq("match_id",Q.match.id).then(({data})=>{ if(data && Q) Q.rows = data; });
+  }
+  const humans = Q.rows.length, bots = Math.max(0, cfg.seats-humans);
+  $("qCount").textContent = humans;
+  $("qSeats").innerHTML = Array.from({length:cfg.seats},(_,i)=>`<i class="${i<humans?"on":""}"></i>`).join("");
+  $("qNote").textContent = bots ? `${humans}/${cfg.seats} seats filled. ${bots} bot${bots>1?"s":""} will join when the timer ends.` : "Full lobby! Starting soon.";
+  $("qList").innerHTML = Q.rows.map((r,i)=>`<div class="lb-row ${r.player_id===ME.id?"me":""}"><div class="rk">${i+1}</div><div>${esc(r.name)}</div></div>`).join("");
+  if(Q.mode==="spin" && left < 4000 && !Q.spun){ Q.spun = true; spinReel(); }
+  if(left <= 0 && !Q.starting){ Q.starting = true; beginMatch(); }
+}
+async function beginMatch(){
+  let humans = Q.rows;
+  if(!LOCAL){ try{ const {data} = await sb.from("match_players").select("*").eq("match_id",Q.match.id); if(data) humans = data; }catch{} }
+  const q = Q; Q = null;
+  startGame({ mode:q.mode, match:q.match, humans:humans.filter(h=>h.player_id!==ME.id) });
+}
+
+/* Spin reel */
+function buildReel(prize){
+  const vals = []; for(let i=0;i<24;i++) vals.push(SPIN_TABLE[i%SPIN_TABLE.length][0]); vals.push(prize);
+  $("reelStrip").innerHTML = vals.map(v=>`<div>${v.toLocaleString()}</div>`).join("");
+  $("reelStrip").style.transition = "none"; $("reelStrip").style.transform = "translateY(0)";
+}
+function spinReel(){
+  const n = $("reelStrip").children.length;
+  requestAnimationFrame(()=>{ $("reelStrip").style.transition = "transform 3.2s cubic-bezier(.15,.85,.25,1)"; $("reelStrip").style.transform = `translateY(-${(n-1)*70}px)`; });
+}
+
+/* =====================================================================
+   GAME ENGINE
+   ===================================================================== */
+let G = null, selMk = 0, selSize = 1, selLev = 1;
+
+function posValue(p){
+  const m = MARKETS.find(x=>x.sym===p.sym); if(!m||m.price==null) return p.margin;
+  return Math.max(0, p.margin + p.margin*p.lev*(m.price/p.entry-1)*p.side);
+}
+function myEquity(){ if(!G) return START; if(!G.alive) return G.frozen; return G.cash + G.positions.reduce((s,p)=>s+posValue(p),0); }
+function checkLiquidations(){
+  if(!G||!G.alive||!G.running) return;
+  G.positions = G.positions.filter(p=>{ if(posValue(p)<=p.margin*0.1){ addFeed(`💥 Your ${p.lev}x ${p.side>0?"long":"short"} on ${p.sym} got liquidated`); return false; } return true; });
+}
+function openPos(side){
+  if(!G||!G.alive||!G.running) return;
+  const m = MARKETS[selMk];
+  if(m.price==null){ toast("Waiting for price…"); return; }
+  if(m.closed){ toast(`${m.sym} is closed right now. Trade crypto instead.`); return; }
+  const margin = Math.floor(G.cash*SIZES[selSize]*100)/100;
+  if(margin<1){ toast("Not enough cash. Close a position first."); return; }
+  G.cash -= margin; G.positions.push({sym:m.sym,side,lev:LEVS[selLev],margin,entry:m.price});
+  addFeed(`You opened ${LEVS[selLev]}x ${side>0?"long":"short"} ${m.sym} with ${fmt$(margin)}`); renderGame();
+}
+function closePos(i){ const p=G.positions[i]; if(!p) return; G.cash+=posValue(p); G.positions.splice(i,1); renderGame(); }
+function closeAllPos(){ if(!G) return; G.positions.forEach(p=>G.cash+=posValue(p)); G.positions=[]; }
+
+function startGame({mode, match, humans}){
+  const cfg = MODES[mode];
+  const start = typeof match.start_at==="number" ? match.start_at : new Date(match.start_at).getTime();
+  const botCount = Math.max(0, cfg.seats - 1 - humans.length);
+  const cuts = []; if(cfg.cutEvery) for(let t=cfg.cutEvery; t<cfg.duration; t+=cfg.cutEvery) cuts.push(start+t);
+  G = { mode, cfg, match, start, end:start+cfg.duration, cuts, cutIdx:0, cash:START, positions:[], alive:true, running:false,
+        frozen:START, outAt:null, bots:makeBots(botCount, match.seed), humans:humans.map(h=>({...h})), localOut:new Map(), done:false, syncAt:0 };
+  $("hudMode").textContent = cfg.name + (mode==="spin" ? ` · prize ${match.spin_prize} ${SYM}` : "");
+  $("hudExtra").textContent = cfg.drawdown ? `Out if you drop below ${fmt$(START*(1-cfg.drawdown))}` : "";
+  $("feed").innerHTML = "";
+  addFeed(`${cfg.name} started: ${humans.length+1} human${humans.length?"s":""}, ${botCount} bot${botCount===1?"":"s"}.`);
+  if(match.rewarded===false && mode!=="practice") addFeed("Today's 10 prize Battle Royales are used up, so this one is for fun.");
+  showScreen("game"); buildMarketTabs(); renderGame();
+}
+
+function others(){
+  const hs = G.humans.map(h=>({ id:h.player_id, name:h.name, equity:Number(h.equity??START), human:true,
+    alive:(h.alive!==false) && !G.localOut.has(h.player_id), outAt: h.out_at ?? G.localOut.get(h.player_id) ?? null }));
+  return [...hs, ...G.bots];
+}
+function allPlayers(){ return [{id:ME.id,name:ME.name||"You",equity:myEquity(),alive:G.alive,outAt:G.outAt,me:true,staker:ME.isStaker}, ...others()]; }
+function ranking(){
+  return allPlayers().sort((a,b)=>{
+    if(a.alive!==b.alive) return a.alive?-1:1;
+    if(!a.alive && a.outAt!==b.outAt) return (b.outAt??-1)-(a.outAt??-1);
+    return b.equity-a.equity;
+  });
+}
+function eliminateMe(reason){
+  closeAllPos(); G.frozen = G.cash; G.alive = false; G.outAt = Math.floor((Date.now()-G.start)/1000);
+  showOverlay(`<div class="cut">${reason==="dd"?"BUSTED":"CUT"}</div><p>${reason==="dd"?`You dropped below the ${Math.round(G.cfg.drawdown*100)}% limit.`:`You were in the bottom ${Math.round(G.cfg.cutFrac*100)}%`} at ${fmt$(G.frozen)}.</p>
+    <p class="muted" style="font-size:13px">Keep watching. Your rank is saved when the match ends.</p><button class="btn block" onclick="hideOverlay()">Watch the rest</button>`);
+}
+function doCut(k){
+  const step = Math.floor((G.cuts[k]-G.start)/1000);
+  const alive = allPlayers().filter(p=>p.alive).sort((a,b)=>a.equity-b.equity);
+  if(alive.length<=3){ addFeed("Only the finalists are left. No more cuts!"); return; }
+  const out = alive.slice(0, Math.max(1, Math.floor(alive.length*G.cfg.cutFrac)));
+  out.forEach(p=>{
+    if(p.me) return;
+    if(p.bot){ const b=G.bots.find(x=>x.id===p.id); b.alive=false; b.outAt=step; }
+    else G.localOut.set(p.id, step);
+    addFeed(`☠️ ${esc(p.name)} cut at ${fmt$(p.equity)}`);
+  });
+  if(out.some(p=>p.me)) eliminateMe("cut");
+  else addFeed(`✅ Cut ${k+1}: you survived. ${allPlayers().filter(p=>p.alive).length} left.`);
+}
+
+async function syncLive(){
+  if(LOCAL || !G || !G.match || String(G.match.id).startsWith("practice")) return;
+  try{
+    await sb.from("match_players").upsert({ match_id:G.match.id, player_id:ME.id, name:ME.name, wallet:isAddr(ME.wallet)?ME.wallet:null,
+      equity:Math.round(myEquity()*100)/100, alive:G.alive, out_at:G.outAt, updated_at:new Date().toISOString() });
+    const {data} = await sb.from("match_players").select("*").eq("match_id",G.match.id);
+    if(data) G.humans = data.filter(r=>r.player_id!==ME.id);
+  }catch{}
+}
+
+function prizeFor(rank){
+  const cfg = G.cfg;
+  if(G.mode==="practice" || G.match.rewarded===false) return 0;
+  if(cfg.prizes==="spin") return rank===1 ? G.match.spin_prize : 0;
+  return cfg.prizes[rank-1] || 0;
+}
+
+async function endGame(){
+  if(G.done) return; G.done = true; G.running = false;
+  if(G.alive){ closeAllPos(); G.frozen = G.cash; }
+  await syncLive();
+  const r = ranking(), total = r.length, rank = r.findIndex(p=>p.me)+1;
+  let tokens = prizeFor(rank), note = "";
+  if(G.mode!=="practice"){
+    const mine = await Ledger.mine().catch(()=>[]);
+    const today = mine.filter(x=>x.kind===G.mode && x.day_key===dayKey() && Number(x.amount)>0).length;
+    if(tokens>0 && G.cfg.dailyCap && today >= G.cfg.dailyCap){ note = `Daily limit reached: only ${G.cfg.dailyCap} ${G.cfg.name} wins are paid per day.`; tokens = 0; }
+    if(tokens>0 && ME.isStaker){ tokens = Math.round(tokens*(1+CONFIG.PERK_BONUS)*100)/100; note = `⭐ Staker bonus +${Math.round(CONFIG.PERK_BONUS*100)}% included.`; }
+    await Ledger.add({ kind:G.mode, ref:String(G.match.id), amount:tokens, rank, players:total });
+    await creditReferral(mine);
+    if(!note) note = tokens>0 ? (isAddr(ME.wallet) ? "Added to your balance. It will be airdropped to your wallet." : "Added to your balance. Add a wallet on the Battle tab so it can be airdropped.") :
+      (G.match.rewarded===false ? "No prize: today's 10 prize Battle Royales were used up." : "No prize this time. Quests can still earn you tokens.");
+  } else note = "Practice doesn't pay tokens. Join a real match to earn.";
+
+  hideOverlay();
+  $("resMode").textContent = G.cfg.name;
+  $("resRank").textContent = "#"+rank; $("resRank").style.color = rank===1?"var(--gold)":"";
+  $("resOf").textContent = `of ${total} traders`;
+  const pnl = (G.frozen/START-1)*100;
+  $("resEq").textContent = fmt$(G.frozen);
+  $("resPnl").textContent = pctStr(pnl); $("resPnl").className = "mono "+(pnl>=0?"pnl-up":"pnl-dn");
+  $("resTok").textContent = fmtT(tokens);
+  $("resNote").textContent = note;
+  $("resList").innerHTML = r.map((p,i)=>lbRow(i+1,p,true, G.mode==="practice"?0:prizeFor(i+1))).join("");
+  G.shareText = `I finished #${rank} of ${total} in a ${G.cfg.name} on Ticker Royale with ${pctStr(pnl)} PnL${tokens?` and won ${fmtT(tokens)} $${SYM}`:""} ⚔️📈\n\nFree trading battles on Robinhood Chain testnet.\n${location.origin}${location.pathname}?ref=${ME.id}`;
+  showScreen("results"); refreshBalance();
+}
+
+async function creditReferral(prevMine){
+  const ref = store("tr_ref");
+  if(!ref || store("tr_ref_done")) return;
+  if(prevMine.some(x=>GAME_KINDS.includes(x.kind))){ store("tr_ref_done","1"); return; }   // already played before the invite
+  await Ledger.add({ kind:"referral", ref:"invited-by:"+ref, amount:REF_AMT });
+  await Ledger.add({ player_id:ref, name:null, wallet:null, kind:"referral", ref:"invite:"+ME.id, amount:REF_AMT });
+  store("tr_ref_done","1"); toast(`Invite bonus: +${REF_AMT} ${SYM}`);
+}
+
+/* ---- main loop ---- */
+setInterval(async ()=>{
+  const now = Date.now();
+  if(Q) renderQueue();
+  if(G && !G.done){
+    if(!G.running && now>=G.start){ G.running = true; }
+    if(G.running){
+      advanceBots(G.bots, Math.min(Math.floor((now-G.start)/1000), G.cfg.duration/1000), G.cfg);
+      if(G.cfg.drawdown && G.alive && myEquity() < START*(1-G.cfg.drawdown)) eliminateMe("dd");
+      while(G.cutIdx<G.cuts.length && now>=G.cuts[G.cutIdx]){ doCut(G.cutIdx); G.cutIdx++; }
+      if(G.cfg.drawdown && allPlayers().filter(p=>p.alive).length<=1 && now-G.start>5000){ await endGame(); return; }
+      if(now>=G.end){ await endGame(); return; }
+    }
+    if(now-G.syncAt>2500){ G.syncAt=now; syncLive(); }
+    if(!$("game").classList.contains("hidden")) renderGame();
+  }
+}, 250);
+
+/* =====================================================================
+   RENDER: game
+   ===================================================================== */
+function buildMarketTabs(){
+  $("markets").innerHTML = MARKETS.map((m,i)=>`<div class="mk ${i===selMk?"on":""}" data-i="${i}"><b>${m.sym}</b><div class="mono" id="mk${i}">—</div></div>`).join("");
+  $("markets").querySelectorAll(".mk").forEach(el=>el.onclick=()=>{ selMk=+el.dataset.i; buildMarketTabs(); renderGame(); });
+  $("sizeChips").innerHTML = SIZES.map((s,i)=>`<button class="chip ${i===selSize?"on":""}" data-i="${i}">${s*100}%</button>`).join("");
+  $("levChips").innerHTML = LEVS.map((l,i)=>`<button class="chip ${i===selLev?"on":""}" data-i="${i}">${l}x</button>`).join("");
+  $("sizeChips").querySelectorAll(".chip").forEach(el=>el.onclick=()=>{ selSize=+el.dataset.i; buildMarketTabs(); });
+  $("levChips").querySelectorAll(".chip").forEach(el=>el.onclick=()=>{ selLev=+el.dataset.i; buildMarketTabs(); });
+}
+function lbRow(rank,p,showOut,prize){
+  const rk = rank<=3 ? "g"+rank : "";
+  return `<div class="lb-row ${p.me?"me":""} ${!p.alive&&showOut?"out":""}"><div class="rk ${rk}">${rank}</div>
+    <div style="flex:1" class="nm">${esc(p.name)} ${p.me?'<span class="badge gold">You</span>':""}${p.bot?' <span class="badge bot">bot</span>':""}${p.staker?' <span class="badge gold">⭐</span>':""}</div>
+    ${prize?`<span class="badge gold">${prize} ${esc(SYM)}</span>`:""}<div class="mono">${fmt$(p.equity)}</div></div>`;
+}
+function renderGame(){
+  if(!G) return;
+  const now = Date.now(), eq = myEquity(), pc = (eq/START-1)*100;
+  $("equity").textContent = fmt$(eq);
+  $("equityPct").textContent = pctStr(pc); $("equityPct").className = "mono "+(pc>=0?"pnl-up":"pnl-dn");
+  $("cash").textContent = fmt$(G.cash);
+  const nextCut = G.cuts[G.cutIdx];
+  let label, ms;
+  if(!G.running){ label="Starts in"; ms=G.start-now; }
+  else if(nextCut){ label="Next cut in"; ms=nextCut-now; }
+  else { label = G.cuts.length ? "Final ends in" : "Ends in"; ms=G.end-now; }
+  $("hudTimerLabel").textContent = label; $("hudTimer").textContent = mmss(ms); $("hudTimer").classList.toggle("danger", G.running && ms<15000);
+  const r = ranking();
+  $("aliveCount").textContent = r.filter(p=>p.alive).length+"/"+r.length;
+  $("myRank").textContent = r.findIndex(p=>p.me)+1;
+  MARKETS.forEach((m,i)=>{ const el=$("mk"+i); if(!el) return;
+    if(m.price==null){ el.textContent="…"; return; }
+    const ch=(m.price/m.open0-1)*100;
+    el.innerHTML = m.closed ? `${fmtP(m.price)} ⏸` : `${fmtP(m.price)}<br><span class="${ch>=0?"pnl-up":"pnl-dn"}">${pctStr(ch)}</span>`; });
+  const m = MARKETS[selMk];
+  $("mkName").textContent = m.sym;
+  $("mkTag").innerHTML = m.closed?'<span class="badge">market closed</span>':m.sim?'<span class="badge sim">simulated</span>':m.live?'<span class="badge gold">live</span>':"";
+  $("mkPrice").textContent = m.price!=null ? "$"+fmtP(m.price) : "—";
+  $("longBtn").disabled = $("shortBtn").disabled = !(G.alive && G.running && !m.closed && m.price!=null);
+  $("closedNote").textContent = !G.alive ? "You're out. Spectating." : !G.running ? "Trading opens when the match starts." : m.closed ? `${m.sym} only trades in US market hours. Crypto trades 24/7.` : "";
+  $("positions").innerHTML = G.positions.length ? G.positions.map((p,i)=>{
+    const v=posValue(p), pnl=v-p.margin;
+    return `<div class="pos"><span class="badge" style="color:${p.side>0?"var(--green)":"var(--red)"}">${p.side>0?"LONG":"SHORT"} ${p.lev}x</span><b>${p.sym}</b>
+      <span class="muted mono">@${fmtP(p.entry)}</span><span class="mono ${pnl>=0?"pnl-up":"pnl-dn"}" style="margin-left:auto">${pnl>=0?"+":""}${fmt$(pnl)} (${pctStr(pnl/p.margin*100)})</span>
+      <button class="btn sm" onclick="closePos(${i})">✕</button></div>`; }).join("") : '<div class="muted" style="font-size:13px">No positions. Pick a side.</div>';
+  const myIdx = r.findIndex(p=>p.me);
+  $("standings").innerHTML = r.slice(0,6).map((p,i)=>lbRow(i+1,p,true, prizeFor(i+1))).join("") + (myIdx>=6?lbRow(myIdx+1,r[myIdx],true,0):"");
+  drawChart(m);
+}
+function drawChart(m){
+  const c=$("chart"), dpr=window.devicePixelRatio||1, w=c.clientWidth, h=c.clientHeight;
+  if(c.width!==w*dpr){ c.width=w*dpr; c.height=h*dpr; }
+  const ctx=c.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h);
+  const pts = m.hist.filter(p=>p.t>Date.now()-3*60e3);
+  if(pts.length<2){ ctx.fillStyle="#8a91a3"; ctx.font="13px Inter"; ctx.fillText(m.price==null?"Connecting to price feed…":"Collecting ticks…",12,h/2); return; }
+  const entries = G ? G.positions.filter(p=>p.sym===m.sym).map(p=>p.entry) : [];
+  let lo=Math.min(...pts.map(p=>p.p),...entries), hi=Math.max(...pts.map(p=>p.p),...entries);
+  if(hi===lo){ hi*=1.0005; lo*=0.9995; } const pad=(hi-lo)*0.12; lo-=pad; hi+=pad;
+  const t0=pts[0].t, t1=pts[pts.length-1].t, X=t=>4+(w-60)*(t-t0)/Math.max(1,t1-t0), Y=p=>h-8-(h-16)*(p-lo)/(hi-lo);
+  const up = pts[pts.length-1].p>=pts[0].p, col = up?"#21e6a0":"#ff4d6a";
+  ctx.strokeStyle="#1c2029"; ctx.lineWidth=1; for(let i=1;i<4;i++){ const y=h*i/4; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+  const grad=ctx.createLinearGradient(0,0,0,h); grad.addColorStop(0,up?"rgba(33,230,160,.25)":"rgba(255,77,106,.25)"); grad.addColorStop(1,"rgba(0,0,0,0)");
+  ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(X(p.t),Y(p.p)):ctx.moveTo(X(p.t),Y(p.p))); ctx.lineTo(X(t1),h); ctx.lineTo(X(t0),h); ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
+  ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(X(p.t),Y(p.p)):ctx.moveTo(X(p.t),Y(p.p))); ctx.strokeStyle=col; ctx.lineWidth=2; ctx.stroke();
+  const lp=pts[pts.length-1]; ctx.fillStyle=col; ctx.beginPath(); ctx.arc(X(lp.t),Y(lp.p),3.5,0,7); ctx.fill();
+  ctx.font="600 11px JetBrains Mono"; ctx.fillText(fmtP(lp.p),X(lp.t)+8,Y(lp.p)+4);
+  ctx.setLineDash([4,4]); ctx.strokeStyle="#ffd23f"; entries.forEach(e=>{ ctx.beginPath(); ctx.moveTo(0,Y(e)); ctx.lineTo(w-56,Y(e)); ctx.stroke(); }); ctx.setLineDash([]);
+}
+function addFeed(msg){ const d=document.createElement("div"); d.innerHTML=msg; $("feed").prepend(d); while($("feed").children.length>40) $("feed").lastChild.remove(); }
+function showOverlay(html){ $("overlayCard").innerHTML=html; $("overlay").classList.remove("hidden"); }
+function hideOverlay(){ $("overlay").classList.add("hidden"); }
+
+/* =====================================================================
+   NAVIGATION
+   ===================================================================== */
+const TABS = ["battle","quests","stake","compete","ranks"];
+function showScreen(id){
+  TABS.forEach(t=>$("tab-"+t).classList.add("hidden"));
+  ["queue","game","results"].forEach(s=>$(s).classList.toggle("hidden", s!==id));
+  const inMatch = id==="queue"||id==="game";
+  $("nav").classList.toggle("hidden", inMatch); $("topbar").classList.toggle("hidden", id==="game");
+  window.scrollTo(0,0);
+}
+function showTab(t){
+  ["queue","game","results"].forEach(s=>$(s).classList.add("hidden"));
+  TABS.forEach(x=>$("tab-"+x).classList.toggle("hidden", x!==t));
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on", b.dataset.tab===t));
+  $("nav").classList.remove("hidden"); $("topbar").classList.remove("hidden");
+  window.scrollTo(0,0);
+  ({battle:renderBattle, quests:renderQuests, stake:renderStake, compete:renderCompete, ranks:renderRanks})[t]();
+}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+document.querySelectorAll("[data-join]").forEach(b=>b.onclick=()=>joinQueue(b.dataset.join));
+$("qLeave").onclick = leaveQueue;
+$("closeAll").onclick = () => { closeAllPos(); renderGame(); };
+$("longBtn").onclick = () => openPos(1);
+$("shortBtn").onclick = () => openPos(-1);
+$("homeBtn").onclick = () => { G=null; showTab("battle"); };
+$("againBtn").onclick = () => { const m=G?.mode||"duel"; G=null; joinQueue(m); };
+$("shareBtn").onclick = () => navigator.clipboard.writeText(G?.shareText||"").then(()=>toast("Copied! Paste it on X")).catch(()=>toast("Copy failed"));
+
+/* ---- battle tab ---- */
+async function renderBattle(){
+  let used = 0;
+  try{
+    if(LOCAL) used = Math.min(BR_PER_DAY, +(store("tr_brcount_"+dayKey())||0));
+    else { const {count} = await sb.from("matches").select("id",{count:"exact",head:true}).eq("mode","br").eq("day_key",dayKey()).eq("rewarded",true); used = count||0; }
+  }catch{}
+  const left = Math.max(0, BR_PER_DAY-used);
+  $("brLeft").textContent = `${left}/${BR_PER_DAY} prize games today`;
+}
+
+/* ---- quests tab ---- */
+function streakOf(games){
+  const days = new Set(games.map(g=>g.day_key)); let d = new Date(dayKey()+"T00:00:00Z");
+  if(!days.has(dayKey(d.getTime()))) d = new Date(d.getTime()-864e5);
+  let n = 0; while(days.has(dayKey(d.getTime()))){ n++; d = new Date(d.getTime()-864e5); }
+  return n;
+}
+async function renderQuests(){
+  const next = new Date(dayKey()+"T00:00:00Z").getTime()+864e5;
+  $("questReset").textContent = "resets in "+dhm(next-Date.now());
+  $("refLink").value = `${location.origin}${location.pathname}?ref=${ME.id}`;
+  let mine = [];
+  try{ mine = await Ledger.mine(); }catch{}
+  const today = dayKey(), games = mine.filter(r=>GAME_KINDS.includes(r.kind)), tg = games.filter(r=>r.day_key===today);
+  const streak = streakOf(games);
+  const state = {
+    play3:  { done:tg.length>=3, prog:Math.min(3,tg.length)/3, sub:`${Math.min(3,tg.length)}/3 today` },
+    duelwin:{ done:tg.some(r=>r.kind==="duel"&&r.rank===1), prog:tg.some(r=>r.kind==="duel"&&r.rank===1)?1:0, sub:"Beat a human or a bot" },
+    brtop3: { done:tg.some(r=>r.kind==="br"&&r.rank<=3), prog:tg.some(r=>r.kind==="br"&&r.rank<=3)?1:0, sub:"Make the final 3" },
+    streak: { done:tg.length>0, prog:tg.length?1:0, sub:`Day ${Math.max(streak,0)}. Play daily to grow it (max 7×)`, amt:5*Math.min(Math.max(streak,1),7) }
+  };
+  $("questList").innerHTML = QUESTS.map(q=>{
+    const s = state[q.k], amt = s.amt||q.amt, claimed = mine.some(r=>r.kind==="quest"&&r.ref===today+":"+q.k);
+    return `<div class="quest"><div class="qi">${q.icon}</div><div style="flex:1"><b>${q.title}</b><div class="muted" style="font-size:12.5px">${s.sub}</div>
+      <div class="prog"><i style="width:${s.prog*100}%"></i></div></div>
+      <button class="btn sm ${s.done&&!claimed?"gold":""}" ${!s.done||claimed?"disabled":""} data-q="${q.k}" data-amt="${amt}">${claimed?"Claimed":"+"+amt}</button></div>`;
+  }).join("");
+  $("questList").querySelectorAll("[data-q]").forEach(b=>b.onclick=async()=>{
+    b.disabled = true;
+    const ok = await Ledger.add({ kind:"quest", ref:today+":"+b.dataset.q, amount:+b.dataset.amt });
+    toast(ok?`+${b.dataset.amt} ${SYM}`:"Already claimed"); refreshBalance(); renderQuests();
+  });
+  const invites = mine.filter(r=>r.kind==="referral" && String(r.ref).startsWith("invite:"));
+  $("refCount").textContent = invites.length;
+  $("refEarned").textContent = fmtT(mine.filter(r=>r.kind==="referral").reduce((s,r)=>s+Number(r.amount),0));
+  const label = r => r.kind==="quest" ? "Quest" : r.kind==="referral" ? "Invite bonus" : MODES[r.kind]?.name || r.kind;
+  $("history").innerHTML = [...mine].sort((a,b)=>String(b.created_at||"").localeCompare(String(a.created_at||""))).slice(0,30).map(r=>`<div class="lb-row"><div style="flex:1">${label(r)} ${r.rank?`<span class="muted">· #${r.rank}/${r.players}</span>`:""}<div class="muted" style="font-size:11.5px">${r.day_key}</div></div>
+    <div class="mono" style="color:${Number(r.amount)>0?"var(--gold)":"var(--muted)"}">${Number(r.amount)>0?"+":""}${fmtT(r.amount)}</div></div>`).join("") || '<div class="muted" style="font-size:13px">No games yet.</div>';
+}
+$("copyRef").onclick = () => navigator.clipboard.writeText($("refLink").value).then(()=>toast("Invite link copied")).catch(()=>{});
+
+/* ---- stake tab ---- */
+async function renderStake(){
+  const ready = !!CONFIG.STAKING_ADDRESS && isAddr(CONFIG.TOKEN_ADDRESS);
+  $("stakeSetup").classList.toggle("hidden", ready);
+  $("stakeUI").classList.toggle("hidden", !ready);
+  if(!ready){ $("aprTxt").textContent = "high"; return; }
+  if(!hasEthers()){ $("stMsg").textContent = "Couldn't load the wallet library."; return; }
+  try{
+    const p = readProvider(), st = new ethers.Contract(CONFIG.STAKING_ADDRESS, STAKE_ABI, p), tk = new ethers.Contract(CONFIG.TOKEN_ADDRESS, ERC20, p);
+    const [apr,total] = await Promise.all([st.aprBps(), st.totalStaked()]);
+    $("aprTxt").textContent = (Number(apr)/100).toFixed(0)+"%";
+    $("stTotal").textContent = fmtT(fromUnits(total));
+    if(isAddr(ME.wallet)){
+      const [bal,stk,pen] = await Promise.all([tk.balanceOf(ME.wallet), st.stakedOf(ME.wallet), st.pending(ME.wallet)]);
+      $("stBal").textContent = fmtT(fromUnits(bal)); $("stStaked").textContent = fmtT(fromUnits(stk)); $("stPending").textContent = fmtT(fromUnits(pen));
+      $("stMsg").textContent = fromUnits(stk)>=CONFIG.PERK_MIN ? "⭐ Staker perk active: +"+Math.round(CONFIG.PERK_BONUS*100)+"% on prizes." : `Stake ${fmtT(Math.max(0,CONFIG.PERK_MIN-fromUnits(stk)))} more to unlock the perk.`;
+    } else $("stMsg").textContent = "Connect your wallet to stake.";
+  }catch{ $("stMsg").textContent = "Couldn't read the staking contract. Check the address and network."; }
+}
+async function stakeTx(kind){
+  const amt = parseFloat($("stAmt").value);
+  if(kind!=="claim" && !(amt>0)){ toast("Enter an amount"); return; }
+  if(!window.ethereum){ toast("Open in a wallet browser to stake"); return; }
+  if(!isAddr(ME.wallet)) { if(!await connectWallet()) return; }
+  try{
+    const signer = await new ethers.BrowserProvider(window.ethereum).getSigner();
+    const st = new ethers.Contract(CONFIG.STAKING_ADDRESS, STAKE_ABI, signer);
+    $("stMsg").textContent = "Confirm in your wallet…";
+    if(kind==="stake"){
+      const tk = new ethers.Contract(CONFIG.TOKEN_ADDRESS, ERC20, signer), v = toUnits(amt);
+      if((await tk.allowance(await signer.getAddress(), CONFIG.STAKING_ADDRESS)) < v){ $("stMsg").textContent = "Step 1/2: approve…"; await (await tk.approve(CONFIG.STAKING_ADDRESS, v)).wait(); }
+      $("stMsg").textContent = "Step 2/2: stake…"; await (await st.stake(v)).wait();
+    } else if(kind==="unstake") await (await st.unstake(toUnits(amt))).wait();
+    else await (await st.claim()).wait();
+    toast("Done ✅"); $("stAmt").value = ""; await checkStaker(); renderStake();
+  }catch(e){ $("stMsg").textContent = (e?.shortMessage || e?.reason || "Transaction failed or was cancelled."); }
+}
+$("stStake").onclick = () => stakeTx("stake");
+$("stUnstake").onclick = () => stakeTx("unstake");
+$("stClaim").onclick = () => stakeTx("claim");
+
+/* ---- compete tab: volume leaderboard from the explorer ---- */
+let compCache = null, compAt = 0;
+async function loadVolumes(){
+  const s = new Date(CONFIG.COMP_START).getTime(), e = new Date(CONFIG.COMP_END).getTime();
+  const vol = {}; let params = null, pages = 0;
+  while(pages < 60){
+    const url = `${CONFIG.EXPLORER}/api/v2/tokens/${CONFIG.TOKEN_ADDRESS}/transfers` + (params ? "?"+new URLSearchParams(params) : "");
+    const j = await (await fetch(url)).json(); pages++;
+    let older = false;
+    for(const t of j.items||[]){
+      const ts = new Date(t.timestamp).getTime();
+      if(ts < s){ older = true; continue; } if(ts > e) continue;
+      const amt = Number(t.total?.value||0) / Math.pow(10, Number(t.total?.decimals ?? CONFIG.TOKEN_DECIMALS));
+      const from = t.from?.hash?.toLowerCase(), to = t.to?.hash?.toLowerCase();
+      let trader = null, side = null;
+      if(t.from?.is_contract && !t.to?.is_contract){ trader = to; side = "buy"; }
+      else if(t.to?.is_contract && !t.from?.is_contract){ trader = from; side = "sell"; }
+      if(!trader || /^0x0{40}$/.test(trader)) continue;
+      const v = vol[trader] ||= { vol:0, buys:0, sells:0 };
+      v.vol += amt; v[side==="buy"?"buys":"sells"]++;
+    }
+    if(older || !j.next_page_params) break;
+    params = j.next_page_params;
+  }
+  return Object.entries(vol).sort((a,b)=>b[1].vol-a[1].vol);
+}
+async function renderCompete(force){
+  const ready = isAddr(CONFIG.TOKEN_ADDRESS);
+  $("compSoon").classList.toggle("hidden", ready); $("compMain").classList.toggle("hidden", !ready);
+  if(!ready) return;
+  const s = new Date(CONFIG.COMP_START).getTime(), e = new Date(CONFIG.COMP_END).getTime(), now = Date.now();
+  $("compPhase").textContent = now<s ? "Starts in" : now<e ? "Ends in" : "Ended";
+  $("compTimer").textContent = now<s ? dhm(s-now) : now<e ? dhm(e-now) : "—";
+  $("compPool").textContent = fmtT(CONFIG.COMP_PRIZES.reduce((a,b)=>a+b,0))+" "+SYM;
+  $("compPrizes").innerHTML = CONFIG.COMP_PRIZES.map((p,i)=>`<span class="badge ${i<3?"gold":""}" style="display:inline-block;margin:3px 4px 3px 0">#${i+1} · ${fmtT(p)}</span>`).join("");
+  $("tradeLink").href = CONFIG.VIBE_TRADE_URL || "#";
+  $("tradeLink").style.opacity = CONFIG.VIBE_TRADE_URL ? 1 : .4;
+  if(!isAddr(CONFIG.TOKEN_ADDRESS)){ $("compBoard").innerHTML = '<div class="muted" style="font-size:13px">The leaderboard appears once the token address is set in CONFIG.</div>'; return; }
+  if(force || !compCache || now-compAt>60e3){
+    $("compBoard").innerHTML = '<div class="muted" style="font-size:13px">Loading trades…</div>';
+    try{ compCache = await loadVolumes(); compAt = now; }catch{ $("compBoard").innerHTML = '<div class="muted" style="font-size:13px">Couldn\'t reach the explorer. Try Refresh.</div>'; return; }
+  }
+  if(!compCache.length){ $("compBoard").innerHTML = '<div class="muted" style="font-size:13px">No trades in the competition window yet.</div>'; return; }
+  const me = (ME.wallet||"").toLowerCase(), meIdx = compCache.findIndex(([a])=>a===me);
+  const row = (i,[a,v]) => `<div class="lb-row ${a===me?"me":""}"><div class="rk ${i<3?"g"+(i+1):""}">${i+1}</div>
+    <div style="flex:1"><a class="mono" href="${CONFIG.EXPLORER}/address/${a}" target="_blank" rel="noopener" style="color:var(--text)">${short(a)}</a><div class="muted" style="font-size:11.5px">${v.buys} buys · ${v.sells} sells</div></div>
+    ${CONFIG.COMP_PRIZES[i]?`<span class="badge gold">${fmtT(CONFIG.COMP_PRIZES[i])}</span>`:""}<div class="mono">${fmtT(v.vol)}</div></div>`;
+  $("compBoard").innerHTML = compCache.slice(0,20).map((e,i)=>row(i,e)).join("") + (meIdx>=20?row(meIdx,compCache[meIdx]):"") +
+    (isAddr(me) && meIdx<0 ? '<div class="note" style="margin-top:8px">Your wallet has no trades yet. Make one on vibe.fun to get on the board.</div>' : "");
+}
+$("compRefresh").onclick = () => renderCompete(true);
+
+/* ---- ranks tab ---- */
+async function renderRanks(){
+  $("ranksList").innerHTML = '<div class="muted" style="font-size:13px">Loading…</div>';
+  let rows = [];
+  try{ rows = await Ledger.all(); }catch{}
+  const agg = {};
+  rows.forEach(r=>{ const a = agg[r.player_id] ||= {name:null,wallet:null,total:0,unpaid:0,wins:0};
+    if(r.name) a.name = r.name; if(r.wallet) a.wallet = r.wallet;
+    a.total += Number(r.amount||0); if(!r.paid) a.unpaid += Number(r.amount||0); if(GAME_KINDS.includes(r.kind)&&r.rank===1) a.wins++; });
+  const list = Object.entries(agg).filter(([,a])=>a.total>0).sort((a,b)=>b[1].total-a[1].total);
+  const meIdx = list.findIndex(([id])=>id===ME.id);
+  const row = (i,[id,a]) => `<div class="lb-row ${id===ME.id?"me":""}"><div class="rk ${i<3?"g"+(i+1):""}">${i+1}</div>
+    <div style="flex:1">${esc(a.name||"Trader")} ${a.wins?`<span class="badge">${a.wins}W</span>`:""}</div><div class="mono">${fmtT(a.total)} ${esc(SYM)}</div></div>`;
+  $("ranksList").innerHTML = list.slice(0,20).map((e,i)=>row(i,e)).join("") + (meIdx>=20?row(meIdx,list[meIdx]):"") || '<div class="muted" style="font-size:13px">No winners yet. Be the first.</div>';
+  $("adminCard").classList.toggle("hidden", !ADMIN);
+  if(ADMIN){
+    const byWallet = {}; let noWallet = 0;
+    list.forEach(([,a])=>{ if(a.unpaid<=0) return; if(isAddr(a.wallet)) byWallet[a.wallet.toLowerCase()] = (byWallet[a.wallet.toLowerCase()]||0)+a.unpaid; else noWallet += a.unpaid; });
+    const csv = "wallet,amount\n"+Object.entries(byWallet).map(([w,v])=>`${w},${v}`).join("\n");
+    $("adminSummary").innerHTML = `${Object.keys(byWallet).length} wallets · ${fmtT(Object.values(byWallet).reduce((a,b)=>a+b,0))} ${esc(SYM)} unpaid` + (noWallet?`<br>${fmtT(noWallet)} ${esc(SYM)} belongs to players without a wallet yet.`:"");
+    $("copyCsv").onclick = () => navigator.clipboard.writeText(csv).then(()=>toast("CSV copied")).catch(()=>{});
+  }
+}
+
+/* ---- "Soon" labels on tabs that aren't configured yet ---- */
+if(!(CONFIG.STAKING_ADDRESS && isAddr(CONFIG.TOKEN_ADDRESS))) document.querySelector('nav [data-tab=stake]').insertAdjacentHTML("beforeend",'<span class="soon">SOON</span>');
+if(!isAddr(CONFIG.TOKEN_ADDRESS)) document.querySelector('nav [data-tab=compete]').insertAdjacentHTML("beforeend",'<span class="soon">SOON</span>');
+
+/* ---- boot ---- */
+startFeed();
+checkStaker();
+refreshBalance();
+showTab("battle");
+</script>
+</body>
+</html>
