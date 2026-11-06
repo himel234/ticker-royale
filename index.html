@@ -514,24 +514,75 @@ function setPrice(m, px){
   if(now-m.lastPush>400){ m.hist.push({t:now,p:px}); m.lastPush=now; if(m.hist.length>900) m.hist.shift(); }
   checkLiquidations();
 }
-async function startFeed(){
-  await Promise.all(MARKETS.map(async m=>{ try{
-    const arr = await (await fetch(`${HERMES}/v2/price_feeds?query=${m.sym}&asset_type=${m.type}`)).json();
-    const f = arr.find(x=>x.attributes && x.attributes.symbol===m.pyth); if(f) m.id = f.id.replace(/^0x/,"");
-  }catch{} }));
-  const withId = MARKETS.filter(m=>m.id);
+/* Live price sources. Crypto: Pyth → Coinbase → Binance (first one that answers wins).
+   Stocks: Pyth only. Simulated prices are used ONLY in demo mode (no Supabase). */
+const PYTH_IDS = {
+  BTC:"e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
+  ETH:"ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace",
+  SOL:"ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d"
+};
+const SRC_RANK = { Pyth:3, Coinbase:2, Binance:1 };
+function liveTick(m, px, src, pubMs){
+  if(!(px>0)) return;
+  const now = Date.now();
+  // keep the best source; fall back to a lower one only if the better one went quiet for 15s
+  if(m.src && SRC_RANK[src] < SRC_RANK[m.src] && now - m.srcAt < 15000) return;
+  if(m.sim || !m.live){ m.hist = []; m.open0 = null; }          // drop fake history when real prices arrive
+  m.live = true; m.sim = false; m.unavailable = false; m.src = src; m.srcAt = now;
+  if(pubMs) m.lastPub = pubMs; else m.lastPub = now;
+  m.closed = m.type==="equity" && now - m.lastPub > 10*60e3;
+  setPrice(m, px);
+}
+function startPyth(){
+  MARKETS.forEach(m=>{ if(PYTH_IDS[m.sym]) m.id = PYTH_IDS[m.sym]; });
   const handle = list => (list||[]).forEach(p=>{
-    const m = MARKETS.find(x=>x.id===p.id.replace(/^0x/,"")); if(!m) return;
-    m.lastPub = p.price.publish_time*1000; m.live=true; m.sim=false; m.closed = Date.now()-m.lastPub > 10*60e3;
-    setPrice(m, Number(p.price.price)*Math.pow(10,p.price.expo));
+    const m = MARKETS.find(x=>x.id===String(p.id).replace(/^0x/,"")); if(!m) return;
+    liveTick(m, Number(p.price.price)*Math.pow(10,p.price.expo), "Pyth", p.price.publish_time*1000);
   });
-  if(withId.length){
-    const q = withId.map(m=>"ids[]="+m.id).join("&");
-    try{ handle((await (await fetch(`${HERMES}/v2/updates/price/latest?parsed=true&${q}`)).json()).parsed); }catch{}
-    try{ const es = new EventSource(`${HERMES}/v2/updates/price/stream?parsed=true&${q}`); es.onmessage = e=>{ try{ handle(JSON.parse(e.data).parsed); }catch{} }; }catch{}
-  }
-  setTimeout(()=>MARKETS.forEach(m=>{ if(!m.live){ m.sim=true; if(m.price==null) setPrice(m,m.fb); } }), LOCAL?1500:6000);
-  setInterval(()=>MARKETS.forEach(m=>{ if(m.sim) setPrice(m, m.price*(1+0.0012*gauss())); else if(m.live) m.closed = Date.now()-m.lastPub > 10*60e3; }),1000);
+  const connect = () => {
+    const q = MARKETS.filter(m=>m.id).map(m=>"ids[]="+m.id).join("&");
+    fetch(`${HERMES}/v2/updates/price/latest?parsed=true&${q}`).then(r=>r.json()).then(j=>handle(j.parsed)).catch(()=>{});
+    try{
+      const es = new EventSource(`${HERMES}/v2/updates/price/stream?parsed=true&${q}`);
+      es.onmessage = e=>{ try{ handle(JSON.parse(e.data).parsed); }catch{} };
+      es.onerror = () => { es.close(); setTimeout(connect, 5000); };
+    }catch{}
+  };
+  connect();
+  // look up stock feed ids, then reconnect so stocks are included
+  Promise.all(MARKETS.filter(m=>m.type==="equity").map(async m=>{ try{
+    const arr = await (await fetch(`${HERMES}/v2/price_feeds?query=${m.sym}&asset_type=equity`)).json();
+    const f = arr.find(x=>x.attributes && x.attributes.symbol===m.pyth); if(f) m.id = f.id.replace(/^0x/,"");
+  }catch{} })).then(()=>{ if(MARKETS.some(m=>m.type==="equity"&&m.id)) connect(); });
+}
+function startCoinbase(){
+  try{
+    const ws = new WebSocket("wss://ws-feed.exchange.coinbase.com");
+    ws.onopen = () => ws.send(JSON.stringify({type:"subscribe", product_ids:["BTC-USD","ETH-USD","SOL-USD"], channels:["ticker"]}));
+    ws.onmessage = e => { try{ const d = JSON.parse(e.data); if(d.type!=="ticker") return;
+      const m = MARKETS.find(x=>x.sym===d.product_id.split("-")[0]); if(m) liveTick(m, Number(d.price), "Coinbase"); }catch{} };
+    ws.onclose = () => setTimeout(startCoinbase, 5000);
+  }catch{}
+}
+function startBinance(){
+  try{
+    const ws = new WebSocket("wss://data-stream.binance.vision/stream?streams=btcusdt@miniTicker/ethusdt@miniTicker/solusdt@miniTicker");
+    ws.onmessage = e => { try{ const d = JSON.parse(e.data).data;
+      const m = MARKETS.find(x=>x.sym===d.s.replace("USDT","")); if(m) liveTick(m, Number(d.c), "Binance"); }catch{} };
+    ws.onclose = () => setTimeout(startBinance, 5000);
+  }catch{}
+}
+async function startFeed(){
+  startPyth(); startCoinbase(); startBinance();
+  setTimeout(()=>MARKETS.forEach(m=>{
+    if(m.live) return;
+    if(LOCAL){ m.sim = true; if(m.price==null) setPrice(m, m.fb); }   // demo only
+    else m.unavailable = true;                                         // real site: never fake prices
+  }), LOCAL?1500:8000);
+  setInterval(()=>MARKETS.forEach(m=>{
+    if(m.sim) setPrice(m, m.price*(1+0.0012*gauss()));
+    else if(m.live && m.type==="equity") m.closed = Date.now()-m.lastPub > 10*60e3;
+  }),1000);
 }
 
 /* =====================================================================
@@ -826,15 +877,15 @@ function renderGame(){
   $("aliveCount").textContent = r.filter(p=>p.alive).length+"/"+r.length;
   $("myRank").textContent = r.findIndex(p=>p.me)+1;
   MARKETS.forEach((m,i)=>{ const el=$("mk"+i); if(!el) return;
-    if(m.price==null){ el.textContent="…"; return; }
+    if(m.price==null){ el.textContent = m.unavailable ? "no price" : "…"; return; }
     const ch=(m.price/m.open0-1)*100;
     el.innerHTML = m.closed ? `${fmtP(m.price)} ⏸` : `${fmtP(m.price)}<br><span class="${ch>=0?"pnl-up":"pnl-dn"}">${pctStr(ch)}</span>`; });
   const m = MARKETS[selMk];
   $("mkName").textContent = m.sym;
-  $("mkTag").innerHTML = m.closed?'<span class="badge">market closed</span>':m.sim?'<span class="badge sim">simulated</span>':m.live?'<span class="badge gold">live</span>':"";
+  $("mkTag").innerHTML = m.closed?'<span class="badge">market closed</span>':m.sim?'<span class="badge sim">simulated</span>':m.live?`<span class="badge gold">● live · ${m.src}</span>`:m.unavailable?'<span class="badge">no price</span>':'<span class="badge">connecting…</span>';
   $("mkPrice").textContent = m.price!=null ? "$"+fmtP(m.price) : "—";
-  $("longBtn").disabled = $("shortBtn").disabled = !(G.alive && G.running && !m.closed && m.price!=null);
-  $("closedNote").textContent = !G.alive ? "You're out. Spectating." : !G.running ? "Trading opens when the match starts." : m.closed ? `${m.sym} only trades in US market hours. Crypto trades 24/7.` : "";
+  $("longBtn").disabled = $("shortBtn").disabled = !(G.alive && G.running && !m.closed && m.price!=null && !m.unavailable);
+  $("closedNote").textContent = !G.alive ? "You're out. Spectating." : !G.running ? "Trading opens when the match starts." : m.closed ? `${m.sym} only trades in US market hours. Crypto trades 24/7.` : m.unavailable ? `Couldn't get a live ${m.sym} price. Trade another market.` : "";
   $("positions").innerHTML = G.positions.length ? G.positions.map((p,i)=>{
     const v=posValue(p), pnl=v-p.margin;
     return `<div class="pos"><span class="badge" style="color:${p.side>0?"var(--green)":"var(--red)"}">${p.side>0?"LONG":"SHORT"} ${p.lev}x</span><b>${p.sym}</b>
